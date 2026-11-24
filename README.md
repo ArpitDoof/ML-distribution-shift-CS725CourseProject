@@ -57,3 +57,38 @@ Run all six neural-network shift experiments on CUDA device 2 with:
 ```bash
 uv run python run_nn.py
 ```
+
+## Classical model experiments (Naive Bayes vs. Logistic Regression)
+
+`GaussianNBModel` is a generative baseline treating standardized numeric and one-hot encoded `Type` features as Gaussian, while `MixedNBModel` separates continuous sensor features (`GaussianNB`) from the categorical `Type` feature (`CategoricalNB`) without double-counting the class prior. `LogisticRegressionModel` is the discriminative linear baseline, and `ShiftAwareLogisticRegression` adds the same temperature difference (`Process - Air`) and torque interactions (`Torque x wear`, `Torque x speed`) used by `ShiftAwareNN`.
+
+```python
+from src.data.data import get
+from src.models.classical import (
+    ClassicalTrainer,
+    GaussianNBModel,
+    LogisticRegressionModel,
+    MixedNBModel,
+    ShiftAwareLogisticRegression,
+)
+
+X_train, X_test, y_train, y_test = get(type="iid")
+trainer = ClassicalTrainer(MixedNBModel, random_state=42)
+trainer.fit(X_train, y_train)
+scores = trainer.evaluate(X_test, y_test, shift_name="iid")
+```
+
+`ClassicalTrainer` mirrors the neural-network `Trainer` API and supports three shift mitigations:
+
+- **Prior re-weighting (label shift)**: pass `target_failure_rate` to `evaluate()` or `predict_proba()`, e.g. `trainer.evaluate(X_test, y_test, shift_name="label", target_failure_rate=0.2)`.
+- **Temperature scaling (calibration)**: fit a scalar temperature on validation logits via `T = trainer.fit_temperature(X_val, y_val)` and pass `temperature=T` to `evaluate()` or `predict_proba()`.
+- **Importance weighting (covariate shift)**: estimate unlabeled density ratios with `weights = estimate_importance_weights(X_train, X_test)` and pass `sample_weight=weights` to `trainer.fit(X_train, y_train, sample_weight=weights)`.
+
+`run_classical.py` evaluates all four models across IID and all six shifts using the same train/validation split and group-deduplicated shift-adaptation split as `run_nn.py`, saving metrics JSONs under `metrics/classical/` (plus `metrics/classical/nb_vs_lr_summary.json`) and individual, per-model, and head-to-head ROC/calibration SVG plots under `plots/classical/`.
+
+Run all classical Naive Bayes vs. Logistic Regression shift experiments with:
+
+```bash
+uv run python run_classical.py
+```
+(On macOS without CUDA `cu130` wheels, run with the local virtual environment: `.venv/bin/python run_classical.py`.)
