@@ -1,1 +1,1 @@
-from .nn import ShiftRobustNN, SimpleNN, Trainer
+from .nn import DeepNN, ShiftAwareNN, ShiftRobustNN, Trainer, WideNN

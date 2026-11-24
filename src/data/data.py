@@ -25,7 +25,7 @@ def _get_product_shift(X_test, y_test, random_state):
     """Resample the test set to give L, M, and H products equal representation."""
     counts = X_test["Type"].value_counts()
     weights = X_test["Type"].map(1 / counts).to_numpy()
-    weights /= weights.sum()
+    weights = weights / weights.sum()
     rng = np.random.default_rng(random_state)
     indices = rng.choice(len(X_test), size=len(X_test), replace=True, p=weights)
     return X_test.iloc[indices].reset_index(drop=True), y_test.iloc[indices].reset_index(drop=True)
@@ -36,7 +36,7 @@ def _get_joint_shift(X_test, y_test, random_state):
     load = X_test["Torque [Nm]"].to_numpy() * X_test["Rotational speed [rpm]"].to_numpy()
     z_load = (load - load.mean()) / load.std()
     weights = np.exp(np.clip(z_load, -5, 5))
-    weights /= weights.sum()
+    weights = weights / weights.sum()
     rng = np.random.default_rng(random_state)
     indices = rng.choice(len(X_test), size=len(X_test), replace=True, p=weights)
     return X_test.iloc[indices].reset_index(drop=True), y_test.iloc[indices].reset_index(drop=True)
@@ -53,7 +53,7 @@ def _get_label_shift(X_test, y_test, random_state, failure_rate):
         0: (1 - failure_rate) / counts[0],
         1: failure_rate / counts[1],
     }).to_numpy()
-    weights /= weights.sum()
+    weights = weights / weights.sum()
 
     rng = np.random.default_rng(random_state)
     indices = rng.choice(len(X_test), size=len(X_test), replace=True, p=weights)
@@ -96,10 +96,16 @@ def get(type="iid", test_size=0.2, random_state=42, temp_delta=2.0, failure_rate
     """Return train/test data, optionally with a warmer-temperature test shift."""
     data_path = DataLoader().data_path
     data = pd.read_csv(data_path)
+    data.columns = data.columns.str.replace("\ufeff", "", regex=False)
 
     y = data["Machine failure"]
+    identifier_columns = [column for column in ("UID", "UDI") if column in data.columns]
+    if not identifier_columns:
+        raise ValueError("Expected an identifier column named UID or UDI")
     X = data.drop(
-        columns=["UID", "Product ID", "Machine failure", "TWF", "HDF", "PWF", "OSF", "RNF"]
+        columns=identifier_columns + [
+            "Product ID", "Machine failure", "TWF", "HDF", "PWF", "OSF", "RNF"
+        ]
     )
 
     rng = np.random.default_rng(random_state)
@@ -144,7 +150,7 @@ def _get_wear_shift(X_test, y_test, random_state):
     wear = X_test["Tool wear [min]"].to_numpy()
     z_wear = (wear - wear.mean()) / wear.std()
     weights = np.exp(np.clip(z_wear, -5, 5))
-    weights /= weights.sum()
+    weights = weights / weights.sum()
 
     rng = np.random.default_rng(random_state)
     indices = rng.choice(len(X_test), size=len(X_test), replace=True, p=weights)

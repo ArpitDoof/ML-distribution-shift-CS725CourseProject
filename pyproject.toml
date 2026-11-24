@@ -1,0 +1,26 @@
+[project]
+name = "ml-distribution-shift-cs725-course-project"
+version = "0.1.0"
+description = "Experiments on machine learning under distribution shifts"
+requires-python = ">=3.10"
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "torch",
+]
+
+[dependency-groups]
+dev = ["ipykernel"]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }

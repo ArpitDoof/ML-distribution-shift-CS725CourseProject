@@ -1,4 +1,15 @@
 #ML-distribution-shift-CS725CourseProject
+## Python environment
+
+Install the project environment with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync
+uv run python your_script.py
+```
+
+For notebooks, select the project's `.venv` Python interpreter as the kernel.
+
 ## Data shifts
 
 `DataLoader` downloads the AI4I dataset to `data/ai4i2020.csv` if it is not already present. Use the top-level `get()` function to return `X_train, X_test, y_train, y_test`.
@@ -25,11 +36,11 @@ X_train, X_test, y_train, y_test = get(
 
 ## Neural network experiments
 
-`SimpleNN` is the baseline. `ShiftRobustNN` adds input/hidden dropout and LayerNorm to encourage reliance on multiple features and avoid batch-running statistics. This is a hypothesis for improved shift robustness, especially under feature corruption; it is not guaranteed to win on every shift.
+`DeepNN` has more hidden layers, while `WideNN` has more neurons in one hidden layer. `ShiftRobustNN` keeps input/hidden dropout and LayerNorm. `ShiftAwareNN` adds a temperature difference and torque interactions, uses product-specific output heads, and uses dropout. These shift-aware choices are hypotheses, not guaranteed improvements.
 
 ```python
 from src.data.data import get
-from src.models.nn import ShiftRobustNN, Trainer
+from src.models.nn import DeepNN, ShiftAwareNN, ShiftRobustNN, Trainer, WideNN
 
 X_train, X_test, y_train, y_test = get(type="iid")
 trainer = Trainer(ShiftRobustNN, epochs=50, batch_size=64, learning_rate=0.001)
@@ -37,4 +48,12 @@ trainer.fit(X_train, y_train)
 scores = trainer.evaluate(X_test, y_test, shift_name="iid")
 ```
 
-Evaluation saves `accuracy`, `f1_score`, `recall`, `precision`, `roc_auc`, and `expected_calibration_error` to `results/<shift_name>/<ModelClass>.json`.
+For a label shift with a known target failure rate, pass it to `evaluate()` to adjust the output prior, for example `trainer.evaluate(X_test, y_test, shift_name="label", target_failure_rate=0.2)`.
+
+Evaluation saves accuracy, positive-class F1/recall/precision, ROC-AUC, ECE, a confusion matrix, and per-class precision/recall/F1/support to JSON. `run_nn.py` saves both a source-validation `*_th_change_<threshold>.json` and a `*_shift_adapted_th_<threshold>.json` per shift. The shift-adapted threshold uses one half of each shifted set for calibration and the other half for evaluation. Individual and combined ROC/calibration plots are saved under `plots/nn/`.
+
+Run all six neural-network shift experiments on CUDA device 2 with:
+
+```bash
+uv run python run_nn.py
+```
