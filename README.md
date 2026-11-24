@@ -92,3 +92,29 @@ Run all classical Naive Bayes vs. Logistic Regression shift experiments with:
 uv run python run_classical.py
 ```
 (On macOS without CUDA `cu130` wheels, run with the local virtual environment: `.venv/bin/python run_classical.py`.)
+
+## Advanced stability evaluation (Subbaswamy et al., 2021)
+
+`src/stability.py` implements the model-agnostic $\sqrt{N}$-consistent Debiased Machine Learning (DML) **Worst-Case Sampler** (Algorithms 1 & 2 from *Evaluating Model Robustness and Stability to Dataset Shift*, AISTATS 2021). Given any held-out test set and model probabilities, it partitions variables into mutable ($W$) and immutable ($Z$) sets, fits conditional expected loss $\hat{\mu}_k(W, Z)$ via RBF `KernelRidge` and conditional $\alpha$-quantiles $\hat{\eta}_k(Z)$ via discrete strata or B-spline `QuantileRegressor`, and estimates worst-case $(1 - \alpha)$ risk with 95% confidence intervals and subpopulation diagnostics.
+
+```python
+from src.stability import compute_loss, estimate_worst_case_risk
+
+losses = compute_loss(y_test, probabilities, loss="bce")
+result, masks = estimate_worst_case_risk(
+    df_eval,
+    losses,
+    mutable_cols=["Tool wear [min]", "Torque [Nm]", "Rotational speed [rpm]"],
+    immutable_cols=["Type", "Machine failure"],
+    stratify_col="Machine failure",
+)
+```
+
+`run_stability.py` runs both a synthetic Figure 2 sanity-check validation ($X_1, X_2 \sim \mathcal{N}(0, 1)$, $Y = \mathbb{I}[X_1 > \sin(2X_2)]$) and four targeted AI4I $(W, Z)$ partitions (`marginal_all_features`, `cond_mechanical_given_type_y`, `cond_thermal_given_type_y`, and discrete-$W$ `cond_product_given_sensors`) across BCE, Brier, and 0–1 loss. JSON outputs are saved under `metrics/stability/` and vector SVG stability curves and subpopulation profiles under `plots/stability/`.
+
+Run the stability analysis with:
+
+```bash
+uv run python run_stability.py
+```
+(On macOS without CUDA `cu130` wheels: `.venv/bin/python run_stability.py`.)
