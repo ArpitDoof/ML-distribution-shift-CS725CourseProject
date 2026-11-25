@@ -151,7 +151,6 @@ def _get_wear_shift(X_test, y_test, random_state):
     z_wear = (wear - wear.mean()) / wear.std()
     weights = np.exp(np.clip(z_wear, -5, 5))
     weights = weights / weights.sum()
-
     rng = np.random.default_rng(random_state)
     indices = rng.choice(len(X_test), size=len(X_test), replace=True, p=weights)
     return X_test.iloc[indices].reset_index(drop=True), y_test.iloc[indices].reset_index(drop=True)
