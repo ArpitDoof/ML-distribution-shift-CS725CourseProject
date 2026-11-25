@@ -93,6 +93,56 @@ uv run python run_classical.py
 ```
 (On macOS without CUDA `cu130` wheels, run with the local virtual environment: `.venv/bin/python run_classical.py`.)
 
+
+
+## SVM and Decision Tree experiments
+
+The project also evaluates **Support Vector Machines (SVMs)** and **Decision Trees** to study how margin-based and tree-based models behave under distribution shifts.
+
+The SVM implementation uses `SVC` with configurable kernels, including Linear and RBF kernels. Numerical sensor features are standardized using `StandardScaler`, while the categorical `Type` feature is one-hot encoded using `OneHotEncoder`. Since `SVC` does not directly provide probability estimates by default, `CalibratedClassifierCV` with sigmoid calibration and 5-fold cross-validation is used to obtain calibrated class probabilities.
+
+The Decision Tree implementation uses `DecisionTreeClassifier` with configurable maximum depth and minimum samples per leaf. Class weighting is set to `balanced` to account for the imbalance between machine failure and non-failure examples. Numerical features are not standardized because Decision Trees do not require feature scaling. The categorical `Type` feature is still one-hot encoded.
+
+Both models are implemented as scikit-learn pipelines, combining preprocessing and classification into a single workflow.
+
+```python
+from src.data.data import get
+from src.models.svmdecisiontree import build_svm, build_decision_tree
+
+X_train, X_test, y_train, y_test = get(
+    type="iid",
+    random_state=42
+)
+
+# SVM
+svm = build_svm(kernel="rbf")
+svm.fit(X_train, y_train)
+svm_prob = svm.predict_proba(X_test)[:, 1]
+
+# Decision Tree
+tree = build_decision_tree(max_depth=5)
+tree.fit(X_train, y_train)
+tree_prob = tree.predict_proba(X_test)[:, 1]
+```
+
+The `build_svm()` function supports configurable kernel, regularization parameter (`C`), and kernel coefficient (`gamma`). The `build_decision_tree()` function supports configurable maximum depth and minimum samples per leaf.
+
+The experiments evaluate the following configurations:
+
+- **Linear SVM**
+- **RBF SVM**
+- **Decision Tree (maximum depth = 3)**
+- **Decision Tree (maximum depth = 5)**
+- **Decision Tree (maximum depth = 10)**
+
+Predicted positive-class probabilities are extracted using `predict_proba()`. These probabilities can subsequently be used to calculate classification metrics, generate ROC curves, and evaluate model performance under different distribution shifts.
+
+Run the SVM and Decision Tree experiments with:
+
+```bash
+uv run python run_svmDecisionTree.py
+```
+
 ## Advanced stability evaluation (Subbaswamy et al., 2021)
 
 `src/stability.py` implements the model-agnostic $\sqrt{N}$-consistent Debiased Machine Learning (DML) **Worst-Case Sampler** (Algorithms 1 & 2 from *Evaluating Model Robustness and Stability to Dataset Shift*, AISTATS 2021). Given any held-out test set and model probabilities, it partitions variables into mutable ($W$) and immutable ($Z$) sets, fits conditional expected loss $\hat{\mu}_k(W, Z)$ via RBF `KernelRidge` and conditional $\alpha$-quantiles $\hat{\eta}_k(Z)$ via discrete strata or B-spline `QuantileRegressor`, and estimates worst-case $(1 - \alpha)$ risk with 95% confidence intervals and subpopulation diagnostics.
