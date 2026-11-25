@@ -34,30 +34,6 @@ X_train, X_test, y_train, y_test = get(
 )
 ```
 
-## Neural network experiments
-
-`DeepNN` has more hidden layers, while `WideNN` has more neurons in one hidden layer. `ShiftRobustNN` keeps input/hidden dropout and LayerNorm. `ShiftAwareNN` adds a temperature difference and torque interactions, uses product-specific output heads, and uses dropout. These shift-aware choices are hypotheses, not guaranteed improvements.
-
-```python
-from src.data.data import get
-from src.models.nn import DeepNN, ShiftAwareNN, ShiftRobustNN, Trainer, WideNN
-
-X_train, X_test, y_train, y_test = get(type="iid")
-trainer = Trainer(ShiftRobustNN, epochs=50, batch_size=64, learning_rate=0.001)
-trainer.fit(X_train, y_train)
-scores = trainer.evaluate(X_test, y_test, shift_name="iid")
-```
-
-For a label shift with a known target failure rate, pass it to `evaluate()` to adjust the output prior, for example `trainer.evaluate(X_test, y_test, shift_name="label", target_failure_rate=0.2)`.
-
-Evaluation saves accuracy, positive-class F1/recall/precision, ROC-AUC, ECE, a confusion matrix, and per-class precision/recall/F1/support to JSON. `run_nn.py` saves both a source-validation `*_th_change_<threshold>.json` and a `*_shift_adapted_th_<threshold>.json` per shift. The shift-adapted threshold uses one half of each shifted set for calibration and the other half for evaluation. Individual and combined ROC/calibration plots are saved under `plots/nn/`.
-
-Run all six neural-network shift experiments on CUDA device 2 with:
-
-```bash
-uv run python run_nn.py
-```
-
 ## Classical model experiments (Naive Bayes vs. Logistic Regression)
 
 `GaussianNBModel` is a generative baseline treating standardized numeric and one-hot encoded `Type` features as Gaussian, while `MixedNBModel` separates continuous sensor features (`GaussianNB`) from the categorical `Type` feature (`CategoricalNB`) without double-counting the class prior. `LogisticRegressionModel` is the discriminative linear baseline, and `ShiftAwareLogisticRegression` adds the same temperature difference (`Process - Air`) and torque interactions (`Torque x wear`, `Torque x speed`) used by `ShiftAwareNN`.
@@ -142,6 +118,44 @@ Run the SVM and Decision Tree experiments with:
 ```bash
 uv run python run_svmDecisionTree.py
 ```
+
+## Neural network experiments
+
+`DeepNN` has more hidden layers, while `WideNN` has more neurons in one hidden layer. `ShiftRobustNN` keeps input/hidden dropout and LayerNorm. `ShiftAwareNN` adds a temperature difference and torque interactions, uses product-specific output heads, and uses dropout. These shift-aware choices are hypotheses, not guaranteed improvements.
+
+```python
+from src.data.data import get
+from src.models.nn import DeepNN, ShiftAwareNN, ShiftRobustNN, Trainer, WideNN
+
+X_train, X_test, y_train, y_test = get(type="iid")
+trainer = Trainer(ShiftRobustNN, epochs=50, batch_size=64, learning_rate=0.001)
+trainer.fit(X_train, y_train)
+scores = trainer.evaluate(X_test, y_test, shift_name="iid")
+```
+
+For a label shift with a known target failure rate, pass it to `evaluate()` to adjust the output prior, for example `trainer.evaluate(X_test, y_test, shift_name="label", target_failure_rate=0.2)`.
+
+Evaluation saves accuracy, positive-class F1/recall/precision, ROC-AUC, ECE, a confusion matrix, and per-class precision/recall/F1/support to JSON. `run_nn.py` saves both a source-validation `*_th_change_<threshold>.json` and a `*_shift_adapted_th_<threshold>.json` per shift. The shift-adapted threshold uses one half of each shifted set for calibration and the other half for evaluation. Individual and combined ROC/calibration plots are saved under `plots/nn/`.
+
+Run all six neural-network shift experiments on CUDA device 2 with:
+
+```bash
+uv run python run_nn.py
+```
+
+
+## Cross-family comparison
+
+`run_cross_family.py` trains and benchmarks all 13 models across all three paradigms—Generative vs. Discriminative (`GaussianNBModel`, `MixedNBModel`, `LogisticRegressionModel`, `ShiftAwareLogisticRegression`), Parametric vs. Non-Parametric (`SVM_Linear`, `SVM_RBF`, `DecisionTree_Depth3`, `DecisionTree_Depth5`, `DecisionTree_Depth10`), and Neural Networks (`DeepNN`, `WideNN`, `ShiftRobustNN`, `ShiftAwareNN`)—on identical train/validation splits (`RANDOM_STATE=42`), all seven regimes (`iid` + 6 shifts), exact Bayes label-shift prior re-weighting, and all four Subbaswamy et al. (2021) stability partitions. For balanced Decision Trees (`class_weight="balanced"`), it applies exact Bayes prior restoration to recover source-posterior probabilities for fair ECE and BCE comparison while recording raw balanced ECE alongside.
+
+Outputs are saved under `metrics/cross_family/` (`cross_family_benchmark.json`, `cross_family_stability.json`) and `plots/cross_family/` (`heatmap_roc_auc.svg`, `heatmap_f1_src_th.svg`, `heatmap_ece.svg`, per-shift ROC/calibration overlays, and cross-family stability curve overlays).
+
+Run the full cross-family comparison with:
+
+```bash
+uv run python run_cross_family.py
+```
+(On macOS without CUDA `cu130` wheels: `.venv/bin/python run_cross_family.py`.)
 
 ## Advanced stability evaluation (Subbaswamy et al., 2021)
 
