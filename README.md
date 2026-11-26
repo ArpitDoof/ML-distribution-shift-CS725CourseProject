@@ -1,4 +1,6 @@
-#ML-distribution-shift-CS725CourseProject
+# Robustness of Machine Learning Models Under Test Data Distribution Shift
+*Arpit Kumar Kushwaha*, *Siddhi Vinayak*, *Kanishk Kumar Meena*, *Aryan Ramani*
+
 ## Python environment
 
 Install the project environment with [uv](https://docs.astral.sh/uv/):
